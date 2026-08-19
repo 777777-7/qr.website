@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Menu Admin — Coffee Shop</title>
+  <style>
+    :root {
+      --cream:#f6efe4; --card:#fffaf3; --brown:#3b2417; --brown-soft:#6f5644;
+      --line:#e7dccb; --accent:#c8781f; --accent-dk:#a9611a; --danger:#a23b2c; --ok:#3f7d32;
+      --radius:14px; --shadow:0 6px 24px rgba(59,36,23,.10);
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; padding:0; }
+    body { font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+      background:var(--cream); color:var(--brown); -webkit-font-smoothing:antialiased; }
+    button { font-family:inherit; cursor:pointer; }
+    h1,h2,h3 { margin:0; }
+    a { color:var(--accent-dk); }
+
+    .topbar { position:sticky; top:0; z-index:30; background:var(--brown); color:var(--cream);
+      display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 18px; flex-wrap:wrap; }
+    .topbar h1 { font-size:18px; font-weight:700; }
+    .topbar .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn { border:none; border-radius:10px; padding:10px 16px; font-weight:700; font-size:14px; min-height:42px; }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.primary:hover { background:var(--accent-dk); }
+    .btn.ghost { background:rgba(255,255,255,.12); color:var(--cream); border:1px solid rgba(255,255,255,.25); }
+    .btn.ghost:hover { background:rgba(255,255,255,.2); }
+    .btn.light { background:var(--cream); color:var(--brown); border:1px solid var(--line); }
+    .btn.light:hover { background:#efe6d6; }
+    .btn.danger { background:transparent; color:var(--danger); border:1px solid #e6c9c3; }
+    .btn.danger:hover { background:#f9ece9; }
+    .btn.sm { padding:7px 12px; min-height:36px; font-size:13px; }
+
+    .wrap { max-width:900px; margin:0 auto; padding:18px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px; margin-bottom:18px; }
+    .card > h2 { font-size:16px; margin-bottom:14px; }
+    .muted { color:var(--brown-soft); font-size:13px; }
+    .note { background:#fbedd9; color:var(--accent-dk); border-radius:10px; padding:10px 12px; font-size:13px; font-weight:600; margin-bottom:14px; }
+
+    label.fld { display:block; font-weight:700; font-size:13px; margin:0 0 6px; }
+    input[type=text], input[type=number], textarea, select {
+      width:100%; border:1.5px solid var(--line); border-radius:10px; padding:10px 12px;
+      font-family:inherit; font-size:14px; color:var(--brown); background:var(--cream); }
+    input:focus, textarea:focus, select:focus { outline:none; border-color:var(--accent); }
+    textarea { resize:vertical; min-height:60px; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .row { display:flex; gap:10px; align-items:center; }
+    .spacer { flex:1; }
+
+    /* categories */
+    .catrow { display:flex; gap:10px; align-items:center; margin-bottom:8px; }
+    .catrow input { flex:1; }
+    .catrow .tag { font-size:12px; color:var(--brown-soft); min-width:64px; }
+
+    /* item list */
+    .cat-block { margin-bottom:6px; }
+    .cat-block h3 { font-size:14px; color:var(--brown-soft); text-transform:uppercase; letter-spacing:.08em; margin:16px 0 8px; }
+    .item { display:flex; gap:12px; align-items:center; padding:10px; border:1px solid var(--line); border-radius:12px; margin-bottom:8px; background:var(--cream); }
+    .item .thumb { width:56px; height:56px; border-radius:9px; object-fit:cover; background:#efe6d6; flex:0 0 auto;
+      display:flex; align-items:center; justify-content:center; color:#c3b49b; font-size:10px; font-weight:700; text-align:center; }
+    .item .info { flex:1; min-width:0; }
+    .item .info .nm { font-weight:700; font-size:15px; }
+    .item .info .sub { color:var(--brown-soft); font-size:12px; margin-top:2px; line-height:1.4; }
+    .item .pr { font-weight:700; }
+    .item .ops { display:flex; gap:6px; }
+
+    /* modal */
+    .overlay { position:fixed; inset:0; background:rgba(30,18,10,.55); z-index:60; display:flex; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+    .modal { background:var(--card); border-radius:16px; width:100%; max-width:620px; box-shadow:var(--shadow); margin:auto; }
+    .modal .mh { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); }
+    .modal .mh h2 { font-size:17px; }
+    .modal .mb { padding:18px; }
+    .modal .mf { padding:14px 18px; border-top:1px solid var(--line); display:flex; gap:10px; }
+    .field { margin-bottom:14px; }
+
+    .imgbox { display:flex; gap:12px; align-items:center; }
+    .imgprev { width:88px; height:88px; border-radius:10px; object-fit:cover; background:#efe6d6; border:1px solid var(--line);
+      display:flex; align-items:center; justify-content:center; color:#c3b49b; font-size:11px; font-weight:700; }
+    .filebtn { position:relative; overflow:hidden; display:inline-block; }
+    .filebtn input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+    /* option groups */
+    .group { border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; background:var(--cream); }
+    .group .ghead { display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+    .group .ghead input[type=text] { flex:1; min-width:140px; background:var(--card); }
+    .group .ghead select { width:auto; background:var(--card); }
+    .chk { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; white-space:nowrap; }
+    .choice { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+    .choice input.lbl { flex:1; background:var(--card); }
+    .choice .pw { width:120px; display:flex; align-items:center; gap:6px; }
+    .choice .pw span { font-size:12px; color:var(--brown-soft); }
+    .choice input.prc { background:var(--card); }
+    .addlink { background:none; border:none; color:var(--accent-dk); font-weight:700; font-size:13px; padding:4px 0; }
+    .iconbtn { border:1px solid var(--line); background:var(--card); border-radius:8px; width:34px; height:34px; color:var(--danger); font-size:16px; flex:0 0 auto; }
+    .iconbtn:hover { background:#f9ece9; }
+
+    .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--brown); color:var(--cream);
+      padding:12px 18px; border-radius:12px; font-weight:600; font-size:14px; box-shadow:var(--shadow); z-index:80; opacity:0; transition:opacity .2s; }
+    .toast.show { opacity:1; }
+
+    @media (max-width:640px) { .grid2 { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1 id="tb-title">Menu Admin</h1>
+    <div class="actions">
+      <a class="btn ghost" href="index.html" target="_blank" rel="noopener">Preview menu</a>
+      <button class="btn ghost" data-act="reset">Reset to file</button>
+      <button class="btn primary" data-act="download">Download menu.js</button>
+    </div>
+  </div>
+
+  <div class="wrap" id="app"></div>
+  <div class="toast" id="toast"></div>
+
+  <!-- Load the current menu as the starting point. -->
+  <script src="menu.js"></script>
+
+  <script>
+  "use strict";
+
+  var STORE_KEY = "coffee_menu_draft_v1";
+
+  // ---------- helpers ----------
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function money(n){ return "RM " + Number(n||0).toFixed(2); }
+  function uid(p){ return p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function byId(arr,id){ return arr.filter(function(x){return x.id===id;})[0]; }
+
+  function defaultConfig(){
+    return { shopName:"Coffee Shop", taxRate:0.06, categories:[], presetNotes:[], items:[] };
+  }
+  function fileConfig(){ return window.MENU_CONFIG ? clone(window.MENU_CONFIG) : defaultConfig(); }
+
+  function loadDraft(){
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e){}
+    return fileConfig();
+  }
+  function saveDraft(){
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); } catch(e){}
+  }
+
+  var cfg = loadDraft();
+  var editing = null;      // item object being edited (a draft copy)
+  var editingIsNew = false;
+
+  // ---------- image downscale (keeps menu.js small) ----------
+  function fileToDataUrl(file, cb){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        var max = 800, w = img.width, h = img.height;
+        if (w > h && w > max){ h = Math.round(h*max/w); w = max; }
+        else if (h >= w && h > max){ w = Math.round(w*max/h); h = max; }
+        var cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img,0,0,w,h);
+        cb(cv.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = function(){ cb(""); };
+      img.src = reader.result;
+    };
+    reader.onerror = function(){ cb(""); };
+    reader.readAsDataURL(file);
+  }
+
+  // ---------- toast ----------
+  var toastEl = document.getElementById("toast"), toastTmr;
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastTmr); toastTmr = setTimeout(function(){ toastEl.classList.remove("show"); }, 2200);
+  }
+
+  // ---------- render: main page ----------
+  var app = document.getElementById("app");
+
+  function settingsHtml(){
+    return '<div class="card"><h2>Shop settings</h2>' +
+      '<div class="grid2">' +
+        '<div><label class="fld">Shop name</label><input type="text" data-role="shopName" value="' + esc(cfg.shopName) + '"></div>' +
+        '<div><label class="fld">Tax / SST (%)</label><input type="number" step="0.1" min="0" data-role="taxRate" value="' + (cfg.taxRate*100) + '"></div>' +
+      '</div>' +
+      '<div class="field" style="margin-top:14px;"><label class="fld">Quick note chips <span class="muted">(comma separated, shown in the order popup)</span></label>' +
+        '<input type="text" data-role="presetNotes" value="' + esc((cfg.presetNotes||[]).join(", ")) + '"></div>' +
+    '</div>';
+  }
+
+  function categoriesHtml(){
+    var rows = cfg.categories.map(function(c, idx){
+      return '<div class="catrow"><span class="tag">Category ' + (idx+1) + '</span>' +
+        '<input type="text" data-role="catName" data-id="' + c.id + '" value="' + esc(c.name) + '">' +
+        '<button class="iconbtn" data-act="del-cat" data-id="' + c.id + '" title="Remove category">×</button></div>';
+    }).join("");
+    return '<div class="card"><h2>Categories</h2>' +
+      (cfg.categories.length ? rows : '<div class="muted" style="margin-bottom:8px;">No categories yet.</div>') +
+      '<button class="btn light sm" data-act="add-cat">+ Add category</button></div>';
+  }
+
+  function itemSummary(item){
+    var g = (item.optionGroups||[]).map(function(x){ return x.name; });
+    var bits = [];
+    if (g.length) bits.push("Options: " + g.join(", "));
+    return bits.join("  ·  ");
+  }
+
+  function itemsHtml(){
+    var blocks = cfg.categories.map(function(c){
+      var items = cfg.items.filter(function(it){ return it.cat === c.id; });
+      var rows = items.length ? items.map(function(it){
+        var thumb = it.image ? '<img class="thumb" src="' + it.image + '">' : '<div class="thumb">No<br>photo</div>';
+        return '<div class="item">' + thumb +
+          '<div class="info"><div class="nm">' + esc(it.name) + '</div>' +
+            '<div class="sub">' + esc(it.desc||"") + (itemSummary(it) ? '<br>' + esc(itemSummary(it)) : "") + '</div></div>' +
+          '<div class="pr">' + money(it.price) + '</div>' +
+          '<div class="ops"><button class="btn light sm" data-act="edit-item" data-id="' + it.id + '">Edit</button>' +
+            '<button class="btn danger sm" data-act="del-item" data-id="' + it.id + '">Delete</button></div>' +
+        '</div>';
+      }).join("") : '<div class="muted" style="margin-bottom:6px;">No dishes in this category.</div>';
+      return '<div class="cat-block"><h3>' + esc(c.name) + '</h3>' + rows +
+        '<button class="btn light sm" data-act="add-dish" data-cat="' + c.id + '">+ Add dish to ' + esc(c.name) + '</button></div>';
+    }).join("");
+    return '<div class="card"><h2>Dishes</h2>' +
+      '<div class="note">To publish changes to customers: click <b>Download menu.js</b> and replace the menu.js file in this folder (and wherever it is hosted).</div>' +
+      (cfg.categories.length ? blocks : '<div class="muted">Add a category first.</div>') + '</div>';
+  }
+
+  function renderApp(){
+    document.getElementById("tb-title").textContent = "Menu Admin — " + cfg.shopName;
+    app.innerHTML = settingsHtml() + categoriesHtml() + itemsHtml() + (editing ? "" : "");
+    renderModal();
+  }
+
+  // ---------- render: item editor modal ----------
+  function choiceRowHtml(g, ch){
+    return '<div class="choice">' +
+      '<input type="text" class="lbl" data-role="choiceLabel" data-g="' + g.id + '" data-c="' + ch.id + '" placeholder="e.g. Spicy" value="' + esc(ch.label) + '">' +
+      '<div class="pw"><span>+RM</span><input type="number" class="prc" step="0.1" min="0" data-role="choicePrice" data-g="' + g.id + '" data-c="' + ch.id + '" value="' + Number(ch.price||0) + '"></div>' +
+      '<button class="iconbtn" data-act="del-choice" data-g="' + g.id + '" data-c="' + ch.id + '" title="Remove choice">×</button>' +
+    '</div>';
+  }
+  function groupHtml(g){
+    var choices = (g.choices||[]).map(function(ch){ return choiceRowHtml(g, ch); }).join("");
+    return '<div class="group">' +
+      '<div class="ghead">' +
+        '<input type="text" data-role="groupName" data-g="' + g.id + '" placeholder="Option name e.g. Spice level / Size" value="' + esc(g.name) + '">' +
+        '<select data-role="groupType" data-g="' + g.id + '">' +
+          '<option value="single"' + (g.type==="single"?" selected":"") + '>Pick one</option>' +
+          '<option value="multi"' + (g.type==="multi"?" selected":"") + '>Pick many</option>' +
+        '</select>' +
+        '<label class="chk"><input type="checkbox" data-role="groupReq" data-g="' + g.id + '"' + (g.required?" checked":"") + '> Required</label>' +
+        '<button class="iconbtn" data-act="del-group" data-g="' + g.id + '" title="Remove option">×</button>' +
+      '</div>' +
+      choices +
+      '<button class="addlink" data-act="add-choice" data-g="' + g.id + '">+ Add choice</button>' +
+    '</div>';
+  }
+  function renderModal(){
+    var host = document.getElementById("modal-host");
+    if (host) host.remove();
+    if (!editing) return;
+
+    var catOpts = cfg.categories.map(function(c){
+      return '<option value="' + c.id + '"' + (editing.cat===c.id?" selected":"") + '>' + esc(c.name) + '</option>';
+    }).join("");
+    var groups = (editing.optionGroups||[]).map(groupHtml).join("");
+    var prev = editing.image ? '<img class="imgprev" src="' + editing.image + '">' : '<div class="imgprev">No photo</div>';
+
+    var wrap = document.createElement("div");
+    wrap.id = "modal-host";
+    wrap.innerHTML =
+      '<div class="overlay" data-act="cancel-item"><div class="modal" data-stop="1">' +
+        '<div class="mh"><h2>' + (editingIsNew ? "Add dish" : "Edit dish") + '</h2>' +
+          '<button class="iconbtn" data-act="cancel-item" style="color:var(--brown-soft);">×</button></div>' +
+        '<div class="mb">' +
+          '<div class="grid2">' +
+            '<div class="field"><label class="fld">Category</label><select data-role="itemCat">' + catOpts + '</select></div>' +
+            '<div class="field"><label class="fld">Price (RM)</label><input type="number" step="0.1" min="0" data-role="itemPrice" value="' + Number(editing.price||0) + '"></div>' +
+          '</div>' +
+          '<div class="field"><label class="fld">Dish name</label><input type="text" data-role="itemName" value="' + esc(editing.name) + '" placeholder="e.g. Caffe Latte"></div>' +
+          '<div class="field"><label class="fld">Description <span class="muted">(one line)</span></label><textarea data-role="itemDesc" placeholder="Short description">' + esc(editing.desc||"") + '</textarea></div>' +
+          '<div class="field"><label class="fld">Picture</label><div class="imgbox">' + prev +
+            '<div class="row" style="gap:8px;"><span class="btn light sm filebtn">Upload photo<input type="file" accept="image/*" data-act="img"></span>' +
+            (editing.image ? '<button class="btn danger sm" data-act="del-image">Remove</button>' : '') + '</div></div>' +
+            '<div class="muted" style="margin-top:6px;">Photos are auto-shrunk to keep the file small.</div></div>' +
+          '<div class="field"><label class="fld">Options <span class="muted">(e.g. Spice level: Spicy / Non-spicy, or Size: Small / Large)</span></label>' +
+            groups +
+            '<button class="btn light sm" data-act="add-group">+ Add option group</button></div>' +
+        '</div>' +
+        '<div class="mf"><button class="btn primary" data-act="save-item">Save dish</button>' +
+          '<button class="btn light" data-act="cancel-item">Cancel</button>' +
+          '<div class="spacer"></div>' +
+          (editingIsNew ? "" : '<button class="btn danger" data-act="del-item-modal" data-id="' + editing.id + '">Delete</button>') +
+        '</div>' +
+      '</div></div>';
+    document.body.appendChild(wrap);
+  }
+
+  // ---------- mutations ----------
+  function openNew(catId){
+    editingIsNew = true;
+    editing = { id: uid("i"), cat: catId || (cfg.categories[0] && cfg.categories[0].id) || "", name:"", desc:"", price:0, image:"", optionGroups:[] };
+    renderModal();
+  }
+  function openEdit(id){
+    var it = byId(cfg.items, id);
+    if (!it) return;
+    editingIsNew = false;
+    editing = clone(it);
+    renderModal();
+  }
+  function closeModal(){ editing = null; renderModal(); }
+
+  function saveItem(){
+    if (!editing.name.trim()){ toast("Please enter a dish name."); return; }
+    if (!editing.cat){ toast("Please choose a category."); return; }
+    editing.price = Number(editing.price) || 0;
+    // Drop empty option groups / choices so the customer page stays clean.
+    editing.optionGroups = (editing.optionGroups||[])
+      .map(function(g){
+        g.choices = (g.choices||[]).filter(function(c){ return c.label.trim() !== ""; })
+          .map(function(c){ return { id:c.id, label:c.label.trim(), price:Number(c.price)||0 }; });
+        return g;
+      })
+      .filter(function(g){ return g.name.trim() !== "" && g.choices.length > 0; });
+
+    if (editingIsNew) cfg.items.push(editing);
+    else {
+      var idx = cfg.items.findIndex(function(x){ return x.id === editing.id; });
+      if (idx >= 0) cfg.items[idx] = editing;
+    }
+    editing = null;
+    saveDraft(); renderApp();
+    toast("Dish saved to draft.");
+  }
+
+  function delItem(id){
+    if (!confirm("Delete this dish?")) return;
+    cfg.items = cfg.items.filter(function(x){ return x.id !== id; });
+    if (editing && editing.id === id) editing = null;
+    saveDraft(); renderApp();
+    toast("Dish deleted.");
+  }
+
+  // ---------- generate + download menu.js ----------
+  function generateMenuJs(){
+    var stamp = new Date().toLocaleString();
+    var clean = {
+      shopName: cfg.shopName,
+      taxRate: Number(cfg.taxRate) || 0,
+      categories: cfg.categories,
+      presetNotes: cfg.presetNotes || [],
+      items: cfg.items
+    };
+    return "/* Menu data generated by admin.html on " + stamp + " */\n" +
+           "/* Do not confuse with a database — this is the shared menu both pages read. */\n" +
+           "window.MENU_CONFIG = " + JSON.stringify(clean, null, 2) + ";\n";
+  }
+  function download(){
+    var blob = new Blob([generateMenuJs()], { type:"application/javascript" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "menu.js";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    toast("menu.js downloaded — replace the old file to publish.");
+  }
+  function resetToFile(){
+    if (!confirm("Discard your draft changes and reload from the current menu.js file?")) return;
+    cfg = fileConfig();
+    try { localStorage.removeItem(STORE_KEY); } catch(e){}
+    editing = null; renderApp();
+    toast("Reloaded from menu.js.");
+  }
+
+  // ---------- events ----------
+  // Text/number/select/checkbox syncing (no re-render needed → keeps focus while typing).
+  document.addEventListener("input", handleInput);
+  document.addEventListener("change", handleChange);
+
+  function handleInput(e){
+    var el = e.target, role = el.getAttribute && el.getAttribute("data-role");
+    if (!role) return;
+    switch (role) {
+      case "shopName": cfg.shopName = el.value; document.getElementById("tb-title").textContent = "Menu Admin — " + cfg.shopName; saveDraft(); break;
+      case "taxRate": cfg.taxRate = (Number(el.value)||0) / 100; saveDraft(); break;
+      case "presetNotes": cfg.presetNotes = el.value.split(",").map(function(s){return s.trim();}).filter(Boolean); saveDraft(); break;
+      case "catName": { var c = byId(cfg.categories, el.getAttribute("data-id")); if (c){ c.name = el.value; saveDraft(); } break; }
+      // item modal fields
+      case "itemName": editing.name = el.value; break;
+      case "itemDesc": editing.desc = el.value; break;
+      case "itemPrice": editing.price = el.value; break;
+      case "groupName": { var g = byId(editing.optionGroups, el.getAttribute("data-g")); if (g) g.name = el.value; break; }
+      case "choiceLabel": { var g2 = byId(editing.optionGroups, el.getAttribute("data-g")); if (g2){ var ch = byId(g2.choices, el.getAttribute("data-c")); if (ch) ch.label = el.value; } break; }
+      case "choicePrice": { var g3 = byId(editing.optionGroups, el.getAttribute("data-g")); if (g3){ var ch3 = byId(g3.choices, el.getAttribute("data-c")); if (ch3) ch3.price = el.value; } break; }
+    }
+  }
+  function handleChange(e){
+    var el = e.target, role = el.getAttribute && el.getAttribute("data-role");
+    if (!role) return;
+    if (role === "itemCat") { editing.cat = el.value; }
+    else if (role === "groupType") { var g = byId(editing.optionGroups, el.getAttribute("data-g")); if (g) g.type = el.value; }
+    else if (role === "groupReq") { var gr = byId(editing.optionGroups, el.getAttribute("data-g")); if (gr) gr.required = el.checked; }
+  }
+
+  document.addEventListener("click", function(e){
+    var el = e.target.closest("[data-act]");
+    if (!el) return;
+    var act = el.getAttribute("data-act");
+    switch (act) {
+      case "add-cat": {
+        cfg.categories.push({ id: uid("c"), name: "New Category" });
+        saveDraft(); renderApp(); break;
+      }
+      case "del-cat": {
+        var id = el.getAttribute("data-id");
+        var used = cfg.items.filter(function(it){ return it.cat === id; }).length;
+        var msg = used ? "This category has " + used + " dish(es). Delete the category and those dishes?" : "Delete this category?";
+        if (!confirm(msg)) break;
+        cfg.categories = cfg.categories.filter(function(c){ return c.id !== id; });
+        cfg.items = cfg.items.filter(function(it){ return it.cat !== id; });
+        saveDraft(); renderApp(); break;
+      }
+      case "add-dish": openNew(el.getAttribute("data-cat")); break;
+      case "edit-item": openEdit(el.getAttribute("data-id")); break;
+      case "del-item": delItem(el.getAttribute("data-id")); break;
+      case "del-item-modal": delItem(el.getAttribute("data-id")); break;
+
+      // modal: close on an explicit button, or a click on the backdrop itself
+      // (NOT when the click bubbled up from a field inside the modal).
+      case "cancel-item":
+        if (el.classList.contains("overlay")) { if (e.target === el) closeModal(); }
+        else closeModal();
+        break;
+      case "save-item": saveItem(); break;
+      case "del-image": editing.image = ""; renderModal(); break;
+      case "add-group":
+        editing.optionGroups.push({ id: uid("g"), name:"", type:"single", required:true, choices:[{ id:uid("ch"), label:"", price:0 }] });
+        renderModal(); break;
+      case "del-group": {
+        var gid = el.getAttribute("data-g");
+        editing.optionGroups = editing.optionGroups.filter(function(g){ return g.id !== gid; });
+        renderModal(); break;
+      }
+      case "add-choice": {
+        var g4 = byId(editing.optionGroups, el.getAttribute("data-g"));
+        if (g4){ g4.choices.push({ id:uid("ch"), label:"", price:0 }); renderModal(); }
+        break;
+      }
+      case "del-choice": {
+        var g5 = byId(editing.optionGroups, el.getAttribute("data-g"));
+        if (g5){ var cid = el.getAttribute("data-c"); g5.choices = g5.choices.filter(function(c){ return c.id !== cid; }); renderModal(); }
+        break;
+      }
+
+      case "download": download(); break;
+      case "reset": resetToFile(); break;
+    }
+  });
+
+  // image upload
+  document.addEventListener("change", function(e){
+    if (e.target.getAttribute && e.target.getAttribute("data-act") === "img" && editing){
+      var f = e.target.files && e.target.files[0];
+      if (!f) return;
+      fileToDataUrl(f, function(dataUrl){ editing.image = dataUrl; renderModal(); });
+    }
+  });
+
+  renderApp();
+  </script>
+</body>
+</html>
