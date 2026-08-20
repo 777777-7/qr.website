@@ -104,6 +104,42 @@
   </style>
 </head>
 <body>
+  <!-- ===== Password gate (staff only) ===== -->
+  <div id="admin-gate" style="position:fixed;inset:0;z-index:9999;background:#f6efe4;display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;">
+    <div style="background:#fffaf3;border:1px solid #e7dccb;border-radius:16px;box-shadow:0 6px 24px rgba(59,36,23,.10);padding:28px;max-width:360px;width:100%;text-align:center;">
+      <h1 style="margin:0 0 6px;font-size:22px;color:#3b2417;">Staff access</h1>
+      <p style="margin:0 0 18px;color:#6f5644;font-size:14px;">Enter the password to manage the menu.</p>
+      <input id="admin-gate-input" type="password" placeholder="Password" autocomplete="off"
+        style="width:100%;box-sizing:border-box;border:1.5px solid #e7dccb;border-radius:10px;padding:12px;font-size:15px;color:#3b2417;background:#f6efe4;margin-bottom:12px;" />
+      <button id="admin-gate-btn"
+        style="width:100%;background:#c8781f;color:#fff;border:none;padding:13px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;">Unlock</button>
+      <div id="admin-gate-msg" style="color:#a23b2c;font-size:13px;margin-top:10px;min-height:16px;"></div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    // Case-insensitive password check. NOTE: this is a client-side deterrent,
+    // not real security — for that, use Supabase auth + row-level security.
+    var PW = "adamyuisgay";
+    var gate = document.getElementById("admin-gate");
+    var input = document.getElementById("admin-gate-input");
+    var btn = document.getElementById("admin-gate-btn");
+    var msg = document.getElementById("admin-gate-msg");
+    function tryUnlock() {
+      if ((input.value || "").trim().toLowerCase() === PW) {
+        if (gate.parentNode) gate.parentNode.removeChild(gate);
+      } else {
+        msg.textContent = "Wrong password. Try again.";
+        input.value = "";
+        input.focus();
+      }
+    }
+    btn.addEventListener("click", tryUnlock);
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") tryUnlock(); });
+    input.focus();
+  })();
+  </script>
+
   <div class="topbar">
     <h1 id="tb-title">Menu Admin</h1>
     <div class="actions">
