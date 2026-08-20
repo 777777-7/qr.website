@@ -53,7 +53,7 @@
   };
 
   window.MENU_CONFIG = {
-    shopName: "SWEET APPLE",
+    shopName: "SWEET APPLES",
     taxRate: 0.06,
 
     categories: [
