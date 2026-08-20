@@ -53,7 +53,7 @@
   };
 
   window.MENU_CONFIG = {
-    shopName: "The Warm Cup",
+    shopName: "SWEET APPLE",
     taxRate: 0.06,
 
     categories: [
