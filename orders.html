@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Orders — Coffee Shop</title>
+  <style>
+    :root {
+      --cream:#f6efe4; --card:#fffaf3; --brown:#3b2417; --brown-soft:#6f5644;
+      --line:#e7dccb; --accent:#c8781f; --accent-dk:#a9611a; --danger:#a23b2c;
+      --ok:#3f7d32; --warn:#b38300;
+      --radius:14px; --shadow:0 6px 24px rgba(59,36,23,.10);
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; padding:0; }
+    body { font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+      background:var(--cream); color:var(--brown); -webkit-font-smoothing:antialiased; }
+    button { font-family:inherit; cursor:pointer; }
+    h1,h2,h3 { margin:0; }
+
+    .topbar { position:sticky; top:0; z-index:30; background:var(--brown); color:var(--cream);
+      display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 18px; flex-wrap:wrap; }
+    .topbar h1 { font-size:18px; font-weight:700; }
+    .topbar .status { font-size:13px; opacity:.85; }
+    .topbar .status.live::before { content:"●"; color:#7fdb6a; margin-right:6px; }
+    .topbar .actions { display:flex; gap:8px; align-items:center; }
+    .btn { border:none; border-radius:10px; padding:10px 16px; font-weight:700; font-size:14px; min-height:42px; }
+    .btn.ghost { background:rgba(255,255,255,.12); color:var(--cream); border:1px solid rgba(255,255,255,.25); }
+    .btn.ghost:hover { background:rgba(255,255,255,.2); }
+    .btn.sm { padding:6px 12px; min-height:34px; font-size:13px; }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.primary:hover { background:var(--accent-dk); }
+    .btn.ok { background:var(--ok); color:#fff; }
+    .btn.ok:hover { background:#325f28; }
+    .btn.warn { background:var(--warn); color:#fff; }
+    .btn.warn:hover { background:#8a6600; }
+    .btn.light { background:var(--cream); color:var(--brown); border:1px solid var(--line); }
+
+    .wrap { max-width:1400px; margin:0 auto; padding:16px; }
+    .columns { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
+    @media (max-width:960px){ .columns{ grid-template-columns:1fr; } }
+
+    .col { background:rgba(255,255,255,.5); border:1px solid var(--line); border-radius:var(--radius); padding:12px; min-height:200px; }
+    .col h2 { font-size:15px; color:var(--brown-soft); text-transform:uppercase; letter-spacing:.1em; margin-bottom:10px; padding:0 4px; display:flex; align-items:center; justify-content:space-between; }
+    .col h2 .count { background:var(--brown); color:var(--cream); border-radius:999px; padding:2px 10px; font-size:12px; font-weight:700; }
+
+    .ord { background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); margin-bottom:10px; padding:12px 14px; }
+    .ord.new { border-left:5px solid var(--accent); }
+    .ord.preparing { border-left:5px solid var(--warn); }
+    .ord.done { border-left:5px solid var(--ok); opacity:.85; }
+    .ord .head { display:flex; justify-content:space-between; gap:8px; align-items:baseline; margin-bottom:6px; }
+    .ord .head .id { font-weight:800; font-size:15px; letter-spacing:.5px; color:var(--accent-dk); }
+    .ord .head .table { background:var(--brown); color:var(--cream); border-radius:999px; padding:2px 10px; font-size:12px; font-weight:700; }
+    .ord .time { color:var(--brown-soft); font-size:12px; }
+    .ord ul { margin:8px 0 10px; padding-left:18px; }
+    .ord li { font-size:14px; margin:3px 0; line-height:1.4; }
+    .ord li .qty { font-weight:700; color:var(--brown); }
+    .ord li .opt { color:var(--brown-soft); font-size:12px; }
+    .ord li .req { color:var(--danger); font-size:12px; font-style:italic; }
+    .ord .foot { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-top:6px; }
+    .ord .total { font-weight:800; font-size:15px; }
+    .ord .btns { display:flex; gap:6px; }
+
+    .empty { text-align:center; padding:24px 10px; color:var(--brown-soft); font-size:14px; }
+
+    .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--brown); color:var(--cream);
+      padding:12px 18px; border-radius:12px; font-weight:600; font-size:14px; box-shadow:var(--shadow); z-index:80; opacity:0; transition:opacity .2s; }
+    .toast.show { opacity:1; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>Live Orders</h1>
+      <div class="status" id="status">Connecting…</div>
+    </div>
+    <div class="actions">
+      <label class="btn ghost sm" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="sound-toggle" checked style="margin:0;"> Sound
+      </label>
+      <a class="btn ghost" href="admin.html">Admin</a>
+      <a class="btn ghost" href="index.html" target="_blank" rel="noopener">Menu</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="columns">
+      <div class="col">
+        <h2>New <span class="count" id="c-new">0</span></h2>
+        <div id="col-new"></div>
+      </div>
+      <div class="col">
+        <h2>Preparing <span class="count" id="c-preparing">0</span></h2>
+        <div id="col-preparing"></div>
+      </div>
+      <div class="col">
+        <h2>Done (last 20) <span class="count" id="c-done">0</span></h2>
+        <div id="col-done"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Supabase JS SDK + our shared client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+
+  <script>
+  "use strict";
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function money(n){ return "RM " + Number(n||0).toFixed(2); }
+  function timeAgo(iso){
+    var s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime())/1000));
+    if (s < 60)   return s + "s ago";
+    if (s < 3600) return Math.round(s/60) + "m ago";
+    return Math.round(s/3600) + "h ago";
+  }
+
+  // In-memory list of all currently shown orders.
+  var orders = [];
+
+  // ---- ding sound (short beep via Web Audio) ----
+  var soundOn = true;
+  document.getElementById("sound-toggle").addEventListener("change", function(e){ soundOn = e.target.checked; });
+  function beep(){
+    if (!soundOn) return;
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = 880;
+      g.gain.value = 0.15; o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + 0.25);
+      setTimeout(function(){ ctx.close(); }, 400);
+    } catch(e){}
+  }
+
+  var toastEl = document.getElementById("toast"), toastTmr;
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastTmr); toastTmr = setTimeout(function(){ toastEl.classList.remove("show"); }, 2200);
+  }
+
+  function orderHtml(o) {
+    var idShort = String(o.id).slice(0,4).toUpperCase();
+    var items = (o.items || []).map(function(it){
+      var opt = it.option_text ? '<div class="opt">' + esc(it.option_text) + '</div>' : '';
+      var notes = (it.notes && it.notes.length) ? '<div class="opt">' + esc(it.notes.join(", ")) + '</div>' : '';
+      var req = it.request ? '<div class="req">"' + esc(it.request) + '"</div>' : '';
+      return '<li><span class="qty">' + it.qty + '×</span> ' + esc(it.name) + opt + notes + req + '</li>';
+    }).join("");
+
+    var actions = "";
+    if (o.status === "new")       actions = '<button class="btn warn sm" data-act="preparing" data-id="' + o.id + '">Start preparing</button>';
+    else if (o.status === "preparing") actions = '<button class="btn ok sm" data-act="done" data-id="' + o.id + '">Mark done</button>';
+    else                          actions = '<button class="btn light sm" data-act="reopen" data-id="' + o.id + '">Reopen</button>';
+
+    return '<div class="ord ' + esc(o.status) + '">' +
+      '<div class="head">' +
+        '<span class="id">#' + idShort + '</span>' +
+        '<span class="table">Table ' + esc(o.table_number || "?") + '</span>' +
+      '</div>' +
+      '<div class="time">' + timeAgo(o.created_at) + '</div>' +
+      '<ul>' + items + '</ul>' +
+      '<div class="foot"><span class="total">' + money(o.total) + '</span><div class="btns">' + actions + '</div></div>' +
+    '</div>';
+  }
+
+  function render() {
+    // A "done" order stays visible for a while (up to 20 in the list).
+    var byStatus = { new:[], preparing:[], done:[] };
+    orders.forEach(function(o){ (byStatus[o.status] || byStatus.done).push(o); });
+    byStatus.done = byStatus.done.slice(0, 20);
+
+    ["new","preparing","done"].forEach(function(s){
+      var host = document.getElementById("col-" + s);
+      host.innerHTML = byStatus[s].length
+        ? byStatus[s].map(orderHtml).join("")
+        : '<div class="empty">No orders here.</div>';
+      document.getElementById("c-" + s).textContent = byStatus[s].length;
+    });
+  }
+
+  // click handlers
+  document.addEventListener("click", function(e){
+    var el = e.target.closest("[data-act]"); if (!el) return;
+    var act = el.getAttribute("data-act"), id = el.getAttribute("data-id");
+    var newStatus = { preparing:"preparing", done:"done", reopen:"new" }[act];
+    if (!newStatus) return;
+    el.disabled = true;
+    window.QRDB.updateOrderStatus(id, newStatus).then(function(){
+      var o = orders.filter(function(x){ return x.id === id; })[0];
+      if (o) { o.status = newStatus; render(); }
+    }).catch(function(err){
+      el.disabled = false; toast("Update failed: " + (err.message||err));
+    });
+  });
+
+  // refresh relative times every 30s
+  setInterval(render, 30000);
+
+  // ---- boot: load recent orders, then subscribe to live changes ----
+  window.QRDB.loadRecentOrders(50).then(function(list){
+    orders = list;
+    render();
+    document.getElementById("status").textContent = "Live — connected";
+    document.getElementById("status").classList.add("live");
+
+    window.QRDB.subscribeOrders(function(evt){
+      if (evt.type === "new") {
+        // Skip duplicates (in case we just inserted it ourselves).
+        if (orders.some(function(o){ return o.id === evt.order.id; })) return;
+        orders.unshift(evt.order);
+        render(); beep(); toast("New order in!");
+      } else if (evt.type === "update") {
+        var o = orders.filter(function(x){ return x.id === evt.order.id; })[0];
+        if (o) { Object.assign(o, evt.order); render(); }
+      }
+    });
+  }).catch(function(err){
+    document.getElementById("status").textContent = "Error: " + (err.message||err);
+  });
+  </script>
+</body>
+</html>

@@ -156,21 +156,22 @@
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root"><div style="padding:60px 20px;text-align:center;color:#6f5644;">Loading menu…</div></div>
 
-  <!-- Shared menu data (edit via admin.html, then replace this file). -->
-  <script src="menu.js"></script>
+  <!-- Supabase JS SDK + our shared client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
 
   <script>
   "use strict";
 
-  // ---- Pull config from menu.js, with a safe fallback if it failed to load ----
-  var CFG = window.MENU_CONFIG || { shopName:"Coffee Shop", taxRate:0.06, categories:[], presetNotes:[], items:[] };
+  // Menu data is loaded from Supabase at startup (see bottom of this script).
+  var CFG          = { shopName:"Coffee Shop", taxRate:0.06, categories:[], presetNotes:[], items:[] };
   var SHOP_NAME    = CFG.shopName;
   var TAX_RATE     = CFG.taxRate;
   var CATEGORIES   = CFG.categories;
   var MENU         = CFG.items;
-  var PRESET_NOTES = CFG.presetNotes || [];
+  var PRESET_NOTES = CFG.presetNotes;
 
   // ---- helpers ----
   function money(n) { return "RM " + Number(n).toFixed(2); }
@@ -277,7 +278,7 @@
 
   function menuHtml() {
     if (!CATEGORIES.length) {
-      return '<div class="screen"><div class="panel">No menu found. Make sure <b>menu.js</b> is in the same folder.</div></div>';
+      return '<div class="screen"><div class="panel">No menu items yet. Add some in <a href="admin.html">admin.html</a>.</div></div>';
     }
     var chips = CATEGORIES.map(function (c) {
       return '<button class="chip' + (state.activeCat === c.id ? " active" : "") + '" data-act="cat" data-id="' + c.id + '">' + esc(c.name) + '</button>';
@@ -491,9 +492,31 @@
         break;
       case "checkout": state.sheetOpen = false; state.screen = "checkout"; render(); break;
       case "to-menu": state.screen = "menu"; render(); break;
-      case "place":
-        state.order = { number: Math.floor(1000 + Math.random() * 9000), wait: 10 + Math.floor(Math.random() * 11), total: totals().total };
-        state.screen = "success"; render(); break;
+      case "place": {
+        var t = totals();
+        var payload = {
+          table_number: TABLE.replace(/^Table\s*/i, ""),
+          items: state.basket.map(function (l) {
+            return { name: l.name, qty: l.qty, unit_price: l.unitPrice,
+                     option_text: l.optionText || "", notes: l.notes, request: l.request };
+          }),
+          subtotal: t.subtotal, tax: t.tax, total: t.total,
+          note: "", status: "new"
+        };
+        var placeBtn = el; placeBtn.disabled = true; placeBtn.textContent = "Placing order…";
+        window.QRDB.placeOrder(payload).then(function (saved) {
+          state.order = {
+            number: String(saved.id).slice(0, 4).toUpperCase(),
+            wait: 10 + Math.floor(Math.random() * 11),
+            total: t.total
+          };
+          state.screen = "success"; render();
+        }).catch(function (err) {
+          alert("Sorry, could not place your order. Please try again.\n\n" + (err.message || err));
+          placeBtn.disabled = false; placeBtn.textContent = "Place Order";
+        });
+        break;
+      }
       case "new":
         state.basket = []; state.order = null;
         state.activeCat = CATEGORIES.length ? CATEGORIES[0].id : null;
@@ -505,7 +528,20 @@
     if (modal && e.target.id === "req-input") { modal.request = e.target.value; modal._focusReq = true; }
   });
 
-  render();
+  // ---- boot: load menu from Supabase, then render ----
+  window.QRDB.loadMenuData().then(function (data) {
+    CFG          = data;
+    SHOP_NAME    = data.shopName;
+    TAX_RATE     = data.taxRate;
+    CATEGORIES   = data.categories;
+    MENU         = data.items;
+    PRESET_NOTES = data.presetNotes;
+    state.activeCat = CATEGORIES.length ? CATEGORIES[0].id : null;
+    render();
+  }).catch(function (err) {
+    root.innerHTML = '<div class="screen"><div class="panel">Could not load menu.<br><span style="color:#a23b2c;font-size:13px;">' +
+      esc(err.message || String(err)) + '</span></div></div>';
+  });
   </script>
 </body>
 </html>

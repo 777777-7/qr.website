@@ -108,21 +108,21 @@
     <h1 id="tb-title">Menu Admin</h1>
     <div class="actions">
       <a class="btn ghost" href="index.html" target="_blank" rel="noopener">Preview menu</a>
-      <button class="btn ghost" data-act="reset">Reset to file</button>
-      <button class="btn primary" data-act="download">Download menu.js</button>
+      <a class="btn ghost" href="orders.html" target="_blank" rel="noopener">Live orders</a>
+      <button class="btn ghost" data-act="reload">Reload</button>
+      <span id="save-badge" class="btn ghost" style="cursor:default;">All changes saved</span>
     </div>
   </div>
 
-  <div class="wrap" id="app"></div>
+  <div class="wrap" id="app"><div style="padding:40px;text-align:center;color:#6f5644;">Loading menu…</div></div>
   <div class="toast" id="toast"></div>
 
-  <!-- Load the current menu as the starting point. -->
-  <script src="menu.js"></script>
+  <!-- Supabase JS SDK + our shared client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
 
   <script>
   "use strict";
-
-  var STORE_KEY = "coffee_menu_draft_v1";
 
   // ---------- helpers ----------
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
@@ -132,25 +132,41 @@
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
   function byId(arr,id){ return arr.filter(function(x){return x.id===id;})[0]; }
 
-  function defaultConfig(){
-    return { shopName:"Coffee Shop", taxRate:0.06, categories:[], presetNotes:[], items:[] };
-  }
-  function fileConfig(){ return window.MENU_CONFIG ? clone(window.MENU_CONFIG) : defaultConfig(); }
-
-  function loadDraft(){
-    try {
-      var raw = localStorage.getItem(STORE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch(e){}
-    return fileConfig();
-  }
-  function saveDraft(){
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); } catch(e){}
-  }
-
-  var cfg = loadDraft();
+  var cfg = { shopName:"Coffee Shop", taxRate:0.06, categories:[], presetNotes:[], items:[] };
   var editing = null;      // item object being edited (a draft copy)
   var editingIsNew = false;
+
+  // ---------- save-status badge ----------
+  var badge = null;
+  function setSaving(state) {
+    if (!badge) badge = document.getElementById("save-badge");
+    if (!badge) return;
+    if (state === "saving")      { badge.textContent = "Saving…"; }
+    else if (state === "saved")  { badge.textContent = "All changes saved"; }
+    else if (state === "error")  { badge.textContent = "Save failed — check connection"; }
+  }
+  // Debounce so rapid typing sends one write, not one per keystroke.
+  function debounce(fn, ms) {
+    var t = null;
+    return function(){ var self=this, args=arguments; clearTimeout(t);
+      t = setTimeout(function(){ fn.apply(self, args); }, ms); };
+  }
+  function runSave(promiseFn) {
+    setSaving("saving");
+    return promiseFn().then(function(){ setSaving("saved"); })
+      .catch(function(e){ console.error(e); setSaving("error"); toast("Save failed: " + (e.message||e)); });
+  }
+  var saveSettingsDebounced = debounce(function(){ runSave(function(){ return window.QRDB.saveSettings(cfg); }); }, 500);
+  function saveCategoryDebounced(catId) {
+    var deb = saveCategoryDebounced._map = saveCategoryDebounced._map || {};
+    if (!deb[catId]) deb[catId] = debounce(function(){
+      var idx = cfg.categories.findIndex(function(c){ return c.id === catId; });
+      if (idx < 0) return Promise.resolve();
+      var c = cfg.categories[idx];
+      runSave(function(){ return window.QRDB.upsertCategory(c, idx); });
+    }, 500);
+    deb[catId]();
+  }
 
   // ---------- image downscale (keeps menu.js small) ----------
   function fileToDataUrl(file, cb){
@@ -229,7 +245,7 @@
         '<button class="btn light sm" data-act="add-dish" data-cat="' + c.id + '">+ Add dish to ' + esc(c.name) + '</button></div>';
     }).join("");
     return '<div class="card"><h2>Dishes</h2>' +
-      '<div class="note">To publish changes to customers: click <b>Download menu.js</b> and replace the menu.js file in this folder (and wherever it is hosted).</div>' +
+      '<div class="note">Changes save automatically to the cloud — customers see them instantly.</div>' +
       (cfg.categories.length ? blocks : '<div class="muted">Add a category first.</div>') + '</div>';
   }
 
@@ -332,53 +348,41 @@
       })
       .filter(function(g){ return g.name.trim() !== "" && g.choices.length > 0; });
 
-    if (editingIsNew) cfg.items.push(editing);
+    var toSave = clone(editing);
+    var idx;
+    if (editingIsNew) { cfg.items.push(toSave); idx = cfg.items.length - 1; }
     else {
-      var idx = cfg.items.findIndex(function(x){ return x.id === editing.id; });
-      if (idx >= 0) cfg.items[idx] = editing;
+      idx = cfg.items.findIndex(function(x){ return x.id === toSave.id; });
+      if (idx >= 0) cfg.items[idx] = toSave;
     }
     editing = null;
-    saveDraft(); renderApp();
-    toast("Dish saved to draft.");
+    renderApp();
+    runSave(function(){ return window.QRDB.upsertItem(toSave, idx); }).then(function(){
+      toast("Dish saved.");
+    });
   }
 
   function delItem(id){
     if (!confirm("Delete this dish?")) return;
     cfg.items = cfg.items.filter(function(x){ return x.id !== id; });
     if (editing && editing.id === id) editing = null;
-    saveDraft(); renderApp();
-    toast("Dish deleted.");
+    renderApp();
+    runSave(function(){ return window.QRDB.deleteItemDb(id); }).then(function(){
+      toast("Dish deleted.");
+    });
   }
 
-  // ---------- generate + download menu.js ----------
-  function generateMenuJs(){
-    var stamp = new Date().toLocaleString();
-    var clean = {
-      shopName: cfg.shopName,
-      taxRate: Number(cfg.taxRate) || 0,
-      categories: cfg.categories,
-      presetNotes: cfg.presetNotes || [],
-      items: cfg.items
-    };
-    return "/* Menu data generated by admin.html on " + stamp + " */\n" +
-           "/* Do not confuse with a database — this is the shared menu both pages read. */\n" +
-           "window.MENU_CONFIG = " + JSON.stringify(clean, null, 2) + ";\n";
-  }
-  function download(){
-    var blob = new Blob([generateMenuJs()], { type:"application/javascript" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url; a.download = "menu.js";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-    toast("menu.js downloaded — replace the old file to publish.");
-  }
-  function resetToFile(){
-    if (!confirm("Discard your draft changes and reload from the current menu.js file?")) return;
-    cfg = fileConfig();
-    try { localStorage.removeItem(STORE_KEY); } catch(e){}
-    editing = null; renderApp();
-    toast("Reloaded from menu.js.");
+  // ---------- reload from database ----------
+  function reloadFromDb(){
+    setSaving("saving");
+    return window.QRDB.loadMenuData().then(function(data){
+      cfg = data;
+      editing = null;
+      renderApp();
+      setSaving("saved");
+    }).catch(function(err){
+      setSaving("error"); toast("Load failed: " + (err.message||err));
+    });
   }
 
   // ---------- events ----------
@@ -390,11 +394,11 @@
     var el = e.target, role = el.getAttribute && el.getAttribute("data-role");
     if (!role) return;
     switch (role) {
-      case "shopName": cfg.shopName = el.value; document.getElementById("tb-title").textContent = "Menu Admin — " + cfg.shopName; saveDraft(); break;
-      case "taxRate": cfg.taxRate = (Number(el.value)||0) / 100; saveDraft(); break;
-      case "presetNotes": cfg.presetNotes = el.value.split(",").map(function(s){return s.trim();}).filter(Boolean); saveDraft(); break;
-      case "catName": { var c = byId(cfg.categories, el.getAttribute("data-id")); if (c){ c.name = el.value; saveDraft(); } break; }
-      // item modal fields
+      case "shopName": cfg.shopName = el.value; document.getElementById("tb-title").textContent = "Menu Admin — " + cfg.shopName; saveSettingsDebounced(); break;
+      case "taxRate": cfg.taxRate = (Number(el.value)||0) / 100; saveSettingsDebounced(); break;
+      case "presetNotes": cfg.presetNotes = el.value.split(",").map(function(s){return s.trim();}).filter(Boolean); saveSettingsDebounced(); break;
+      case "catName": { var c = byId(cfg.categories, el.getAttribute("data-id")); if (c){ c.name = el.value; saveCategoryDebounced(c.id); } break; }
+      // item modal fields (unsaved until "Save dish")
       case "itemName": editing.name = el.value; break;
       case "itemDesc": editing.desc = el.value; break;
       case "itemPrice": editing.price = el.value; break;
@@ -417,8 +421,11 @@
     var act = el.getAttribute("data-act");
     switch (act) {
       case "add-cat": {
-        cfg.categories.push({ id: uid("c"), name: "New Category" });
-        saveDraft(); renderApp(); break;
+        var newCat = { id: uid("c"), name: "New Category" };
+        cfg.categories.push(newCat);
+        renderApp();
+        runSave(function(){ return window.QRDB.upsertCategory(newCat, cfg.categories.length - 1); });
+        break;
       }
       case "del-cat": {
         var id = el.getAttribute("data-id");
@@ -427,7 +434,10 @@
         if (!confirm(msg)) break;
         cfg.categories = cfg.categories.filter(function(c){ return c.id !== id; });
         cfg.items = cfg.items.filter(function(it){ return it.cat !== id; });
-        saveDraft(); renderApp(); break;
+        renderApp();
+        // Cascade in the DB removes the items too.
+        runSave(function(){ return window.QRDB.deleteCategoryDb(id); });
+        break;
       }
       case "add-dish": openNew(el.getAttribute("data-cat")); break;
       case "edit-item": openEdit(el.getAttribute("data-id")); break;
@@ -461,8 +471,7 @@
         break;
       }
 
-      case "download": download(); break;
-      case "reset": resetToFile(); break;
+      case "reload": reloadFromDb(); break;
     }
   });
 
@@ -475,7 +484,8 @@
     }
   });
 
-  renderApp();
+  // ---------- boot ----------
+  reloadFromDb();
   </script>
 </body>
 </html>
