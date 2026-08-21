@@ -490,8 +490,11 @@
         if (el.classList.contains("overlay")) { if (e.target === el) { state.sheetOpen = false; render(); } }
         else { state.sheetOpen = false; render(); }
         break;
-      case "checkout": state.sheetOpen = false; state.screen = "checkout"; render(); break;
-      case "to-menu": state.screen = "menu"; render(); break;
+      case "checkout":
+        state.sheetOpen = false; state.screen = "checkout";
+        history.pushState({ screen: "checkout" }, "", "#checkout"); // Back button returns to the menu, not off-site
+        render(); break;
+      case "to-menu": history.back(); break; // go back via history so the Back button stays in sync
       case "place": {
         var t = totals();
         var payload = {
@@ -510,7 +513,10 @@
             wait: 10 + Math.floor(Math.random() * 11),
             total: t.total
           };
-          state.screen = "success"; render();
+          state.basket = [];                                   // order sent — clear the basket
+          state.screen = "success";
+          history.replaceState({ screen: "success" }, "", "#done");
+          render();
         }).catch(function (err) {
           alert("Sorry, could not place your order. Please try again.\n\n" + (err.message || err));
           placeBtn.disabled = false; placeBtn.textContent = "Place Order";
@@ -520,8 +526,19 @@
       case "new":
         state.basket = []; state.order = null;
         state.activeCat = CATEGORIES.length ? CATEGORIES[0].id : null;
-        state.screen = "menu"; render(); break;
+        state.screen = "menu";
+        history.replaceState({ screen: "menu" }, "", location.pathname + location.search);
+        render(); break;
     }
+  });
+
+  // Browser Back button navigates between in-app screens (menu / checkout / done)
+  // instead of leaving the site.
+  window.addEventListener("popstate", function (e) {
+    state.screen = (e.state && e.state.screen) || "menu";
+    state.sheetOpen = false;
+    modal = null;
+    render();
   });
 
   root.addEventListener("input", function (e) {
