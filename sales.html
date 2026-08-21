@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daily Sales — Coffee Shop</title>
+  <style>
+    :root {
+      --cream:#f6efe4; --card:#fffaf3; --brown:#3b2417; --brown-soft:#6f5644;
+      --line:#e7dccb; --accent:#c8781f; --accent-dk:#a9611a; --ok:#3f7d32;
+      --radius:14px; --shadow:0 6px 24px rgba(59,36,23,.10);
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; padding:0; }
+    body { font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+      background:var(--cream); color:var(--brown); -webkit-font-smoothing:antialiased; }
+    button { font-family:inherit; cursor:pointer; }
+    h1,h2,h3 { margin:0; }
+
+    .topbar { position:sticky; top:0; z-index:30; background:var(--brown); color:var(--cream);
+      display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 18px; flex-wrap:wrap; }
+    .topbar h1 { font-size:18px; font-weight:700; }
+    .topbar .actions { display:flex; gap:8px; }
+    .btn { border:none; border-radius:10px; padding:10px 16px; font-weight:700; font-size:14px; min-height:42px; }
+    .btn.ghost { background:rgba(255,255,255,.12); color:var(--cream); border:1px solid rgba(255,255,255,.25); }
+    .btn.ghost:hover { background:rgba(255,255,255,.2); }
+    .btn.light { background:var(--cream); color:var(--brown); border:1px solid var(--line); }
+    .btn.light:hover { background:#efe6d6; }
+    .btn.sm { padding:7px 12px; min-height:36px; font-size:13px; }
+
+    .wrap { max-width:900px; margin:0 auto; padding:18px; }
+
+    .monthbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:12px; }
+    .monthbar .mtitle { font-size:20px; font-weight:800; }
+    .monthbar .nav { display:flex; gap:8px; }
+    .nav button { width:42px; height:42px; border-radius:10px; border:1px solid var(--line); background:var(--card); font-size:18px; color:var(--brown); }
+    .nav button:hover { background:#efe6d6; }
+
+    .summary { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);
+      padding:14px 18px; margin-bottom:16px; display:flex; gap:26px; flex-wrap:wrap; }
+    .summary .k { color:var(--brown-soft); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+    .summary .v { font-size:22px; font-weight:800; color:var(--accent-dk); }
+
+    .cal { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px; }
+    .dow { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:6px; }
+    .dow div { text-align:center; font-size:12px; font-weight:700; color:var(--brown-soft); padding:4px 0; }
+    .grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+    .cell { min-height:74px; border:1px solid var(--line); border-radius:10px; background:var(--cream); padding:6px 8px;
+      display:flex; flex-direction:column; justify-content:space-between; }
+    .cell.empty { background:transparent; border:none; }
+    .cell.has { cursor:pointer; background:#fdf4e6; border-color:#eeddc2; }
+    .cell.has:hover { border-color:var(--accent); }
+    .cell.today { outline:2px solid var(--accent); outline-offset:-2px; }
+    .cell .dnum { font-size:13px; font-weight:700; color:var(--brown-soft); }
+    .cell .amt { font-size:15px; font-weight:800; color:var(--accent-dk); line-height:1.15; }
+    .cell .cnt { font-size:11px; color:var(--brown-soft); }
+
+    .loading, .msg { text-align:center; color:var(--brown-soft); padding:26px; font-size:14px; }
+
+    /* day detail overlay */
+    .overlay { position:fixed; inset:0; background:rgba(30,18,10,.55); z-index:60; display:flex; align-items:flex-start;
+      justify-content:center; padding:20px; overflow-y:auto; }
+    .sheet { background:var(--card); border-radius:16px; width:100%; max-width:560px; box-shadow:var(--shadow); margin:auto; }
+    .sheet .sh { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); }
+    .sheet .sh h2 { font-size:17px; }
+    .sheet .sh .tot { font-weight:800; color:var(--accent-dk); }
+    .sheet .sb { padding:16px 18px; }
+    .closeb { border:1px solid var(--line); background:var(--cream); border-radius:8px; width:34px; height:34px; font-size:18px; color:var(--brown-soft); }
+
+    .selltbl { width:100%; border-collapse:collapse; margin-bottom:16px; }
+    .selltbl td { padding:6px 4px; border-bottom:1px solid var(--line); font-size:14px; }
+    .selltbl td.q { width:44px; font-weight:800; color:var(--accent-dk); }
+    .selltbl td.r { text-align:right; color:var(--brown-soft); }
+
+    .ord { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px; background:var(--cream); }
+    .ord .oh { display:flex; justify-content:space-between; font-size:13px; color:var(--brown-soft); margin-bottom:4px; }
+    .ord .oi { font-size:14px; line-height:1.5; }
+    .ord .ot { text-align:right; font-weight:700; margin-top:4px; }
+    .subh { font-size:13px; font-weight:700; color:var(--brown-soft); text-transform:uppercase; letter-spacing:.06em; margin:4px 0 8px; }
+
+    /* password gate */
+    #gate { position:fixed; inset:0; z-index:9999; background:var(--cream); display:flex; align-items:center; justify-content:center; padding:20px; }
+    #gate .box { background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:28px; max-width:360px; width:100%; text-align:center; }
+    #gate h1 { font-size:22px; margin:0 0 6px; }
+    #gate p { margin:0 0 18px; color:var(--brown-soft); font-size:14px; }
+    #gate input { width:100%; border:1.5px solid var(--line); border-radius:10px; padding:12px; font-size:15px; color:var(--brown); background:var(--cream); margin-bottom:12px; }
+    #gate button { width:100%; background:var(--accent); color:#fff; border:none; padding:13px; border-radius:10px; font-weight:700; font-size:15px; }
+    #gate .err { color:var(--danger,#a23b2c); font-size:13px; margin-top:10px; min-height:16px; }
+
+    @media (max-width:560px){ .cell{ min-height:62px; } .cell .amt{ font-size:13px; } }
+  </style>
+</head>
+<body>
+  <!-- ===== Password gate (staff only) ===== -->
+  <div id="gate">
+    <div class="box">
+      <h1>Staff access</h1>
+      <p>Enter the password to view sales.</p>
+      <input id="gate-input" type="password" placeholder="Password" autocomplete="off">
+      <button id="gate-btn">Unlock</button>
+      <div class="err" id="gate-err"></div>
+    </div>
+  </div>
+  <script>
+  (function(){
+    var PW = "adamyuisgay"; // case-insensitive; client-side deterrent only
+    var g = document.getElementById("gate"), i = document.getElementById("gate-input"),
+        b = document.getElementById("gate-btn"), e = document.getElementById("gate-err");
+    function go(){
+      if ((i.value||"").trim().toLowerCase() === PW) { if (g.parentNode) g.parentNode.removeChild(g); }
+      else { e.textContent = "Wrong password. Try again."; i.value=""; i.focus(); }
+    }
+    b.addEventListener("click", go);
+    i.addEventListener("keydown", function(ev){ if (ev.key === "Enter") go(); });
+    i.focus();
+  })();
+  </script>
+
+  <div class="topbar">
+    <h1>Daily Sales</h1>
+    <div class="actions">
+      <a class="btn ghost" href="orders.html">Live orders</a>
+      <a class="btn ghost" href="admin.html">Admin</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="monthbar">
+      <div class="mtitle" id="mtitle">—</div>
+      <div class="nav">
+        <button id="prev" title="Previous month">‹</button>
+        <button id="today-btn" class="btn light sm" style="width:auto;">Today</button>
+        <button id="next" title="Next month">›</button>
+      </div>
+    </div>
+
+    <div class="summary">
+      <div><div class="k">This month</div><div class="v" id="sum-total">RM 0.00</div></div>
+      <div><div class="k">Orders</div><div class="v" id="sum-count">0</div></div>
+    </div>
+
+    <div class="cal">
+      <div class="dow"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+      <div id="grid" class="grid"></div>
+      <div class="loading" id="cal-msg" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div id="detail-host"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script>
+  "use strict";
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function money(n){ return "RM " + Number(n||0).toFixed(2); }
+  function pad(n){ return (n<10?"0":"") + n; }
+  function ymd(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+  var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  var today = new Date();
+  var view = { y: today.getFullYear(), m: today.getMonth() }; // m is 0-based
+  var monthData = {};   // "YYYY-MM-DD" -> { total, count, orders:[] }
+
+  var gridEl = document.getElementById("grid");
+  var msgEl = document.getElementById("cal-msg");
+
+  async function loadMonth(){
+    monthData = {};
+    document.getElementById("mtitle").textContent = MONTHS[view.m] + " " + view.y;
+    msgEl.style.display = "block"; msgEl.textContent = "Loading…"; gridEl.innerHTML = "";
+    var start = new Date(view.y, view.m, 1);
+    var end = new Date(view.y, view.m + 1, 1);
+    try {
+      var res = await window.sb.from("orders").select("id,table_number,items,total,created_at")
+        .gte("created_at", start.toISOString()).lt("created_at", end.toISOString())
+        .order("created_at", { ascending: true });
+      if (res.error) throw res.error;
+      (res.data || []).forEach(function(o){
+        var key = ymd(new Date(o.created_at));
+        var d = monthData[key] || (monthData[key] = { total:0, count:0, orders:[] });
+        d.total += Number(o.total) || 0;
+        d.count += 1;
+        d.orders.push(o);
+      });
+      msgEl.style.display = "none";
+      renderCalendar();
+      renderSummary();
+    } catch(e){
+      msgEl.style.display = "block";
+      msgEl.textContent = "Could not load sales: " + (e.message || e);
+    }
+  }
+
+  function renderSummary(){
+    var total = 0, count = 0;
+    Object.keys(monthData).forEach(function(k){ total += monthData[k].total; count += monthData[k].count; });
+    document.getElementById("sum-total").textContent = money(total);
+    document.getElementById("sum-count").textContent = count;
+  }
+
+  function renderCalendar(){
+    var first = new Date(view.y, view.m, 1);
+    var startDow = first.getDay();                       // 0 = Sunday
+    var daysIn = new Date(view.y, view.m + 1, 0).getDate();
+    var cells = Math.ceil((startDow + daysIn) / 7) * 7;
+    var todayKey = ymd(new Date());
+    var html = "";
+    for (var i = 0; i < cells; i++){
+      var dayNum = i - startDow + 1;
+      if (dayNum < 1 || dayNum > daysIn){ html += '<div class="cell empty"></div>'; continue; }
+      var date = new Date(view.y, view.m, dayNum);
+      var key = ymd(date);
+      var d = monthData[key];
+      var cls = "cell" + (d ? " has" : "") + (key === todayKey ? " today" : "");
+      var body = d
+        ? '<div class="amt">' + money(d.total) + '</div><div class="cnt">' + d.count + ' order' + (d.count!==1?'s':'') + '</div>'
+        : '<div class="cnt">—</div>';
+      html += '<div class="' + cls + '" data-day="' + key + '"><div class="dnum">' + dayNum + '</div>' + body + '</div>';
+    }
+    gridEl.innerHTML = html;
+  }
+
+  // ---- day detail ----
+  function openDay(key){
+    var d = monthData[key];
+    if (!d) return;
+    // aggregate items sold that day
+    var agg = {};
+    d.orders.forEach(function(o){
+      (o.items || []).forEach(function(it){
+        var name = it.name || "Item";
+        agg[name] = (agg[name] || 0) + (Number(it.qty) || 0);
+      });
+    });
+    var rows = Object.keys(agg).sort(function(a,b){ return agg[b]-agg[a]; }).map(function(name){
+      return '<tr><td class="q">' + agg[name] + '×</td><td>' + esc(name) + '</td></tr>';
+    }).join("");
+
+    var orderList = d.orders.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); })
+      .map(function(o){
+        var t = new Date(o.created_at).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+        var items = (o.items||[]).map(function(it){ return it.qty + "× " + esc(it.name); }).join(", ");
+        return '<div class="ord"><div class="oh"><span>Table ' + esc(o.table_number||"?") + '</span><span>' + t + '</span></div>' +
+               '<div class="oi">' + items + '</div><div class="ot">' + money(o.total) + '</div></div>';
+      }).join("");
+
+    var dateLabel = new Date(key + "T00:00:00").toLocaleDateString(undefined, {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+
+    var host = document.getElementById("detail-host");
+    host.innerHTML =
+      '<div class="overlay" id="ov"><div class="sheet">' +
+        '<div class="sh"><div><h2>' + esc(dateLabel) + '</h2>' +
+          '<div style="font-size:13px;color:var(--brown-soft);">' + d.count + ' order' + (d.count!==1?'s':'') + '</div></div>' +
+          '<div style="text-align:right;"><div class="tot">' + money(d.total) + '</div>' +
+            '<button class="closeb" id="close-detail" style="margin-top:6px;">×</button></div></div>' +
+        '<div class="sb">' +
+          '<div class="subh">Items sold</div>' +
+          (rows ? '<table class="selltbl">' + rows + '</table>' : '<div class="msg">No item detail.</div>') +
+          '<div class="subh">Orders</div>' + orderList +
+        '</div>' +
+      '</div></div>';
+    document.getElementById("close-detail").addEventListener("click", closeDay);
+    document.getElementById("ov").addEventListener("click", function(e){ if (e.target.id === "ov") closeDay(); });
+  }
+  function closeDay(){ document.getElementById("detail-host").innerHTML = ""; }
+
+  // clicks on calendar days
+  gridEl.addEventListener("click", function(e){
+    var cell = e.target.closest(".cell.has");
+    if (cell) openDay(cell.getAttribute("data-day"));
+  });
+
+  document.getElementById("prev").addEventListener("click", function(){
+    view.m--; if (view.m < 0){ view.m = 11; view.y--; } loadMonth();
+  });
+  document.getElementById("next").addEventListener("click", function(){
+    view.m++; if (view.m > 11){ view.m = 0; view.y++; } loadMonth();
+  });
+  document.getElementById("today-btn").addEventListener("click", function(){
+    var n = new Date(); view.y = n.getFullYear(); view.m = n.getMonth(); loadMonth();
+  });
+
+  loadMonth();
+  </script>
+</body>
+</html>
