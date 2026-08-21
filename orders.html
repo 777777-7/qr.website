@@ -78,6 +78,8 @@
       <label class="btn ghost sm" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" id="sound-toggle" checked style="margin:0;"> Sound
       </label>
+      <button class="btn ghost sm" id="notif-btn">Enable alerts</button>
+      <a class="btn ghost" href="sales.html">Sales</a>
       <a class="btn ghost" href="admin.html">Admin</a>
       <a class="btn ghost" href="index.html" target="_blank" rel="noopener">Menu</a>
     </div>
@@ -173,6 +175,33 @@
     clearTimeout(toastTmr); toastTmr = setTimeout(function(){ toastEl.classList.remove("show"); }, 2200);
   }
 
+  // ---- browser push notifications (pop up even when the tab is in the background) ----
+  var notifBtn = document.getElementById("notif-btn");
+  function updateNotifBtn(){
+    if (!notifBtn) return;
+    if (!("Notification" in window)) { notifBtn.textContent = "No alerts"; notifBtn.disabled = true; return; }
+    if (Notification.permission === "granted")      notifBtn.textContent = "Alerts on";
+    else if (Notification.permission === "denied")  notifBtn.textContent = "Alerts blocked";
+    else                                            notifBtn.textContent = "Enable alerts";
+  }
+  updateNotifBtn();
+  if (notifBtn) {
+    notifBtn.addEventListener("click", function(){
+      if (!("Notification" in window)) return;
+      Notification.requestPermission().then(updateNotifBtn);
+    });
+  }
+  function notify(order){
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    try {
+      var items = (order.items || []).map(function(it){ return it.qty + "× " + it.name; }).join(", ");
+      new Notification("New order — Table " + (order.table_number || "?"), {
+        body: (items || "New order") + "  •  " + money(order.total),
+        tag: "order-" + order.id
+      });
+    } catch(e){}
+  }
+
   function orderHtml(o) {
     var idShort = String(o.id).slice(0,4).toUpperCase();
     var items = (o.items || []).map(function(it){
@@ -243,7 +272,7 @@
         // Skip duplicates (in case we just inserted it ourselves).
         if (orders.some(function(o){ return o.id === evt.order.id; })) return;
         orders.unshift(evt.order);
-        render(); beep(); toast("New order in!");
+        render(); beep(); toast("New order in!"); notify(evt.order);
       } else if (evt.type === "update") {
         var o = orders.filter(function(x){ return x.id === evt.order.id; })[0];
         if (o) { Object.assign(o, evt.order); render(); }
@@ -261,7 +290,7 @@
       // additions don't get counted as "new" and cause a double ding)
       var known = {};
       orders.forEach(function(o){ known[o.id] = true; });
-      var freshCount = list.filter(function(o){ return !known[o.id]; }).length;
+      var fresh = list.filter(function(o){ return !known[o.id]; });
 
       orders = list;
       render();
@@ -269,7 +298,11 @@
       st.textContent = "Live — updated " + new Date().toLocaleTimeString();
       st.classList.add("live");
 
-      if (freshCount > 0) { beep(); toast(freshCount === 1 ? "New order in!" : freshCount + " new orders!"); }
+      if (fresh.length > 0) {
+        beep();
+        toast(fresh.length === 1 ? "New order in!" : fresh.length + " new orders!");
+        fresh.forEach(notify);
+      }
     }).catch(function(){
       document.getElementById("status").textContent = "Reconnecting…";
     });
