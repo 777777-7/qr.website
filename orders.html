@@ -252,6 +252,29 @@
   }).catch(function(err){
     document.getElementById("status").textContent = "Error: " + (err.message||err);
   });
+
+  // ---- auto-refresh: re-fetch orders every few seconds so the owner never
+  //      has to reload the page (works even if realtime push is unavailable) ----
+  function refreshOrders(){
+    return window.QRDB.loadRecentOrders(50).then(function(list){
+      // Which order ids do we already know about? (built now, so realtime
+      // additions don't get counted as "new" and cause a double ding)
+      var known = {};
+      orders.forEach(function(o){ known[o.id] = true; });
+      var freshCount = list.filter(function(o){ return !known[o.id]; }).length;
+
+      orders = list;
+      render();
+      var st = document.getElementById("status");
+      st.textContent = "Live — updated " + new Date().toLocaleTimeString();
+      st.classList.add("live");
+
+      if (freshCount > 0) { beep(); toast(freshCount === 1 ? "New order in!" : freshCount + " new orders!"); }
+    }).catch(function(){
+      document.getElementById("status").textContent = "Reconnecting…";
+    });
+  }
+  setInterval(refreshOrders, 7000); // every 7 seconds
   </script>
 </body>
 </html>
