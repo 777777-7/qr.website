@@ -122,18 +122,48 @@
   // In-memory list of all currently shown orders.
   var orders = [];
 
-  // ---- ding sound (short beep via Web Audio) ----
+  // ---- ding sound (short two-tone chime via Web Audio) ----
+  // Browsers block audio until the user interacts with the page, so we keep ONE
+  // shared AudioContext and "unlock" (resume) it on the first tap/click/keypress.
   var soundOn = true;
-  document.getElementById("sound-toggle").addEventListener("change", function(e){ soundOn = e.target.checked; });
+  document.getElementById("sound-toggle").addEventListener("change", function(e){
+    soundOn = e.target.checked;
+    if (soundOn) { unlockAudio(); beep(); } // let the owner hear a test ding when turning it on
+  });
+
+  var audioCtx = null;
+  function getCtx(){
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ audioCtx = null; }
+    }
+    return audioCtx;
+  }
+  function unlockAudio(){
+    var c = getCtx();
+    if (c && c.state === "suspended") { c.resume(); }
+  }
+  // First interaction anywhere primes audio so later dings actually play.
+  ["click","keydown","touchstart"].forEach(function(ev){
+    window.addEventListener(ev, unlockAudio, { once:false, passive:true });
+  });
+
+  function tone(ctx, freq, startAt, dur){
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, startAt);
+    g.gain.exponentialRampToValueAtTime(0.2, startAt + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, startAt + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(startAt); o.stop(startAt + dur + 0.02);
+  }
   function beep(){
     if (!soundOn) return;
+    var ctx = getCtx(); if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume();
     try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = "sine"; o.frequency.value = 880;
-      g.gain.value = 0.15; o.connect(g); g.connect(ctx.destination);
-      o.start(); o.stop(ctx.currentTime + 0.25);
-      setTimeout(function(){ ctx.close(); }, 400);
+      var t = ctx.currentTime;
+      tone(ctx, 880, t, 0.18);          // ding
+      tone(ctx, 1175, t + 0.16, 0.22);  // dong (higher)
     } catch(e){}
   }
 
