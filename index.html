@@ -47,6 +47,8 @@
     .add-btn { background:var(--accent); color:#fff; border:none; padding:10px 16px; border-radius:10px; font-weight:700; font-size:14px; min-height:40px; }
     .add-btn:hover { background:var(--accent-dk); }
     .section-heading { margin:2px 0 14px; font-size:20px; }
+    .cat-section { margin-bottom:34px; scroll-margin-top:70px; }
+    .cat-section:last-child { margin-bottom:0; }
 
     .basket { position:sticky; top:74px; background:var(--card); border:1px solid var(--line);
       border-radius:var(--radius); box-shadow:var(--shadow); display:flex; flex-direction:column; max-height:calc(100vh - 96px); }
@@ -140,6 +142,7 @@
         background:var(--card); font-weight:700; font-size:14px; color:var(--brown); white-space:nowrap; min-height:40px; }
       .chip.active { background:var(--accent); color:#fff; border-color:var(--accent); }
       .center { padding:16px 14px; }
+      .cat-section { scroll-margin-top:120px; }
       .grid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); }
       .basket-col { display:none; }
       .mobile-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; position:fixed;
@@ -286,8 +289,7 @@
     var cats = CATEGORIES.map(function (c) {
       return '<button class="cat-btn' + (state.activeCat === c.id ? " active" : "") + '" data-act="cat" data-id="' + c.id + '">' + esc(c.name) + '</button>';
     }).join("");
-    var visible = MENU.filter(function (m) { return m.cat === state.activeCat; });
-    var items = visible.length ? visible.map(function (item) {
+    function cardHtml(item) {
       return '<div class="card" data-act="open" data-id="' + item.id + '">' +
           thumbHtml(item, "thumb") +
           '<div class="body">' +
@@ -299,7 +301,18 @@
             '</div>' +
           '</div>' +
         '</div>';
-    }).join("") : '<div class="empty">No items in this category yet.</div>';
+    }
+    // Every category is rendered as its own section stacked top-to-bottom, so
+    // scrolling flows naturally from one category into the next.
+    var sections = CATEGORIES.map(function (c) {
+      var visible = MENU.filter(function (m) { return m.cat === c.id; });
+      var items = visible.length ? visible.map(cardHtml).join("")
+                                 : '<div class="empty">No items in this category yet.</div>';
+      return '<section class="cat-section" id="cat-sec-' + c.id + '" data-cat="' + c.id + '">' +
+          '<h2 class="section-heading">' + esc(c.name) + '</h2>' +
+          '<div class="grid">' + items + '</div>' +
+        '</section>';
+    }).join("");
 
     var count = itemCount(), t = totals();
     var sheet = state.sheetOpen ?
@@ -310,8 +323,7 @@
     return '<div class="chips">' + chips + '</div>' +
       '<div class="layout">' +
         '<aside class="sidebar"><div class="side-title">Menu</div>' + cats + '</aside>' +
-        '<main class="center"><h2 class="section-heading">' + esc(catName(state.activeCat)) + '</h2>' +
-          '<div class="grid">' + items + '</div></main>' +
+        '<main class="center">' + sections + '</main>' +
         '<div class="basket-col"><aside class="basket"><h2>Your Basket</h2>' + basketBodyHtml() + '</aside></div>' +
       '</div>' +
       '<div class="mobile-bar">' +
@@ -416,6 +428,63 @@
     }
   }
 
+  // ---- category scroll-spy ----
+  // Distance from the top of the viewport that counts as "the current category".
+  // Accounts for the sticky header (and the sticky chips bar on mobile).
+  function spyOffset() {
+    var h = document.querySelector(".header");
+    var chips = document.querySelector(".chips");
+    var off = h ? h.getBoundingClientRect().height : 0;
+    if (chips && getComputedStyle(chips).display !== "none") off += chips.getBoundingClientRect().height;
+    return off + 16;
+  }
+
+  // Highlight the given category button/chip without re-rendering (which would
+  // reset the scroll position).
+  function setActiveCat(id) {
+    if (!id || id === state.activeCat) return;
+    state.activeCat = id;
+    Array.prototype.forEach.call(document.querySelectorAll(".cat-btn, .chip"), function (b) {
+      b.classList.toggle("active", b.getAttribute("data-id") === id);
+    });
+    var chip = document.querySelector(".chip.active"); // keep the active chip in view on mobile
+    if (chip && chip.scrollIntoView) chip.scrollIntoView({ inline: "center", block: "nearest" });
+  }
+
+  var suppressSpyUntil = 0;
+  function scrollToCat(id) {
+    var sec = document.getElementById("cat-sec-" + id);
+    if (!sec) return;
+    suppressSpyUntil = Date.now() + 800; // don't let the spy fight the smooth scroll
+    setActiveCat(id);
+    sec.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function currentCatFromScroll() {
+    var secs = document.querySelectorAll(".cat-section");
+    if (!secs.length) return null;
+    // At the very bottom of the page, always mark the last category active.
+    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 4) {
+      return secs[secs.length - 1].getAttribute("data-cat");
+    }
+    var offset = spyOffset(), current = secs[0].getAttribute("data-cat");
+    Array.prototype.forEach.call(secs, function (s) {
+      if (s.getBoundingClientRect().top - offset <= 0) current = s.getAttribute("data-cat");
+    });
+    return current;
+  }
+
+  var spyTicking = false;
+  window.addEventListener("scroll", function () {
+    if (state.screen !== "menu" || modal || state.sheetOpen) return;
+    if (Date.now() < suppressSpyUntil || spyTicking) return;
+    spyTicking = true;
+    requestAnimationFrame(function () {
+      spyTicking = false;
+      setActiveCat(currentCatFromScroll());
+    });
+  }, { passive: true });
+
   // ---- actions ----
   function openModal(item) {
     modal = { item: item, sel: {}, notes: [], request: "", qty: 1, _focusReq: false };
@@ -467,7 +536,7 @@
     if (!el) return;
     var act = el.getAttribute("data-act");
     switch (act) {
-      case "cat": state.activeCat = el.getAttribute("data-id"); render(); break;
+      case "cat": scrollToCat(el.getAttribute("data-id")); break;
       case "open": openModal(findItem(el.getAttribute("data-id"))); break;
       case "modal-close":
         if (el.classList.contains("overlay")) { if (e.target === el) closeModal(); }
