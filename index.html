@@ -160,9 +160,6 @@
       .mobile-bar .info b { font-size:16px; }
       .mobile-bar .openbtn { background:var(--accent); color:#fff; border:none; padding:12px 20px; border-radius:12px; font-weight:800; min-height:46px; }
       .mobile-bar .openbtn:disabled { background:#6f5644; cursor:not-allowed; }
-      .sheet-overlay { align-items:flex-end; padding:0; }
-      .sheet { background:var(--card); width:100%; border-radius:20px 20px 0 0; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; }
-      .sheet h2 { padding:18px 18px 12px; font-size:18px; border-bottom:1px solid var(--line); position:relative; }
     }
   </style>
 </head>
@@ -208,8 +205,7 @@
     activeCat: CATEGORIES.length ? CATEGORIES[0].id : null,
     basket: [],     // { lineId, name, basePrice, optionText, unitPrice, qty, notes[], request }
     screen: "menu", // menu | checkout | success
-    order: null,
-    sheetOpen: false
+    order: null
   };
   var modal = null; // { item, sel:{groupId:choiceId|[choiceIds]}, notes:[], request, qty, _focusReq }
 
@@ -323,10 +319,6 @@
     }).join("");
 
     var count = itemCount(), t = totals();
-    var sheet = state.sheetOpen ?
-      '<div class="overlay sheet-overlay" data-act="sheet-close"><div class="sheet" data-stop="1">' +
-        '<h2>Your Basket<button class="close-x" data-act="sheet-close">×</button></h2>' + basketBodyHtml() +
-      '</div></div>' : "";
 
     return '<div class="chips">' + chips + '</div>' +
       '<div class="layout">' +
@@ -336,8 +328,8 @@
       '</div>' +
       '<div class="mobile-bar">' +
         '<div class="info"><div><b>' + count + '</b> item' + (count !== 1 ? "s" : "") + '</div><div>' + money(t.total) + '</div></div>' +
-        '<button class="openbtn" data-act="sheet-open"' + (state.basket.length === 0 ? " disabled" : "") + '>View Basket</button>' +
-      '</div>' + sheet;
+        '<button class="openbtn" data-act="checkout"' + (state.basket.length === 0 ? " disabled" : "") + '>View Basket</button>' +
+      '</div>';
   }
 
   function modalHtml() {
@@ -490,7 +482,7 @@
 
   var spyTicking = false;
   window.addEventListener("scroll", function () {
-    if (state.screen !== "menu" || modal || state.sheetOpen) return;
+    if (state.screen !== "menu" || modal) return;
     if (Date.now() < suppressSpyUntil || spyTicking) return;
     spyTicking = true;
     requestAnimationFrame(function () {
@@ -568,13 +560,8 @@
       case "line-inc": setLineQty(+el.getAttribute("data-id"), +1); break;
       case "line-dec": setLineQty(+el.getAttribute("data-id"), -1); break;
       case "line-rm": state.basket = state.basket.filter(function (l) { return l.lineId !== +el.getAttribute("data-id"); }); render(); break;
-      case "sheet-open": state.sheetOpen = true; render(); break;
-      case "sheet-close":
-        if (el.classList.contains("overlay")) { if (e.target === el) { state.sheetOpen = false; render(); } }
-        else { state.sheetOpen = false; render(); }
-        break;
       case "checkout":
-        state.sheetOpen = false; state.screen = "checkout";
+        state.screen = "checkout";
         history.pushState({ screen: "checkout" }, "", "#checkout"); // Back button returns to the menu, not off-site
         render(); break;
       case "to-menu": history.back(); break; // go back via history so the Back button stays in sync
@@ -619,7 +606,6 @@
   // instead of leaving the site.
   window.addEventListener("popstate", function (e) {
     state.screen = (e.state && e.state.screen) || "menu";
-    state.sheetOpen = false;
     modal = null;
     render();
   });
